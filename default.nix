@@ -30,6 +30,7 @@ pkgs.runCommand "bundle-${name}"
   nativeBuildInputs = cfg.deps ++ [ pkgs.nukeReferences ];
 }
   (''
+    export STATIC_PATCHELF="${pkgs.pkgsStatic.patchelf}/bin/patchelf"
     set -euo pipefail
     ${if builtins.pathExists "${path}/bin" then ''
       find '${path}/bin' -type f -executable -print0 | xargs -0 --max-args 1 ${cfg.script} "$out"

@@ -64,15 +64,11 @@ bundleExe() {
   exe_name=$(basename "$exe")
   local real_interpreter
   real_interpreter=$(realpath "$interpreter")
-  local interpreter_checksum
-  interpreter_checksum=$(sha256sum "$real_interpreter" | cut -d' ' -f1)
-  local interpreter_install_path
-  interpreter_install_path="/tmp/$interpreter_checksum-$(basename "$real_interpreter")"
 
   local copied_exe="$out/$exe_dir/$exe_name"
   cp "$exe" "$copied_exe"
   chmod +w "$copied_exe"
-  patchelf --set-interpreter "$interpreter_install_path" --set-rpath "\$ORIGIN/../$lib_dir" "$copied_exe"
+  patchelf --set-rpath "\$ORIGIN/../$lib_dir" "$copied_exe"
 
   bundleLib "$interpreter" "lib"
 
@@ -82,19 +78,20 @@ bundleExe() {
     bundleLib "$linked_lib" "lib"
   done
 
+  # package statically compiled patchelf inside
+  cp $STATIC_PATCHELF $out/$bin_dir/
+
   printf '#!/bin/sh
 set -eu
+exe=%s
+patchelf=%s
+interpreter=%s
 dir="$(cd -- "$(dirname "$(dirname "$0")")" >/dev/null 2>&1 ; pwd -P)"
-if [ ! -f %s ]; then
-  cp "$dir"/%s %s
-  chmod 555 %s
-fi
-exec "$dir"/%s "$@"' \
-  "'$interpreter_install_path'" \
-  "'$lib_dir/$(basename "$interpreter")'" \
-  "'$interpreter_install_path'" \
-  "'$interpreter_install_path'" \
+"$dir/$patchelf" --set-interpreter "$dir/$interpreter" "$dir/$exe"
+exec "$dir/$exe" "$@"' \
   "'$exe_dir/$exe_name'" \
+  "'$bin_dir/patchelf'" \
+  "'$lib_dir/$(basename "$interpreter")'" \
   > "$out/$bin_dir/$exe_name"
   chmod +x "$out/$bin_dir/$exe_name"
 }
